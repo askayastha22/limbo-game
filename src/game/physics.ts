@@ -443,13 +443,15 @@ export function checkRopeGrab(
       // Set cooldown to prevent immediate release (10 frames = ~167ms at 60fps)
       newPlayer.ropeGrabCooldown = 10;
 
-      // Transfer player momentum to rope
-      const momentumToAngular = player.velocity.x * 0.01;
+      // Transfer player momentum to rope (significant transfer for natural swing)
+      const momentumToAngular = player.velocity.x * 0.05;
+      // Also add initial swing based on approach direction
+      const initialSwing = player.velocity.x > 0 ? 0.02 : (player.velocity.x < 0 ? -0.02 : 0);
       const newRopes = ropes.map((r) => {
         if (r.id === rope.id) {
           return {
             ...r,
-            angularVelocity: r.angularVelocity + momentumToAngular,
+            angularVelocity: r.angularVelocity + momentumToAngular + initialSwing,
           };
         }
         return r;
