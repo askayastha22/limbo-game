@@ -336,8 +336,8 @@ export function updateRopePhysics(
 
   if (ropeLen > 0) {
     // Tangent direction (perpendicular to rope, pointing right when rope hangs down)
-    const tangentX = -ropeVecY / ropeLen;
-    const tangentY = ropeVecX / ropeLen;
+    const tangentX = ropeVecY / ropeLen;
+    const tangentY = -ropeVecX / ropeLen;
 
     // Apply swing force in tangent direction based on input
     if (input.left) {
