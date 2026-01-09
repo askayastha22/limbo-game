@@ -374,34 +374,35 @@ export function updateRopePhysics(
     const radialY = newRopeVecY / newDist;
 
     if (newDist > rope.length) {
-      // Rope is taut - apply soft spring force instead of hard constraint
+      // Rope is taut - apply very soft spring force for elastic feel
       const overstretch = newDist - rope.length;
-      const springStrength = 0.3; // How quickly rope pulls back (0.3 = soft, 1.0 = rigid)
-      const dampening = 0.8; // Reduce radial velocity when taut
+      const springStrength = 0.15; // Very soft spring (lower = more elastic)
+      const dampening = 0.4; // Only dampen 40% of radial velocity for bouncy feel
 
       // Apply spring force pulling player back toward rope length
       const pullForce = overstretch * springStrength;
       playerCenterX -= radialX * pullForce;
       playerCenterY -= radialY * pullForce;
 
-      // Dampen outward radial velocity (but don't eliminate it completely)
+      // Gently dampen outward radial velocity (keeps bounce)
       const radialVel = newPlayer.velocity.x * radialX + newPlayer.velocity.y * radialY;
       if (radialVel > 0) {
         newPlayer.velocity.x -= radialVel * radialX * dampening;
         newPlayer.velocity.y -= radialVel * radialY * dampening;
       }
 
-      // Hard limit - never let player go too far beyond rope length
-      const maxStretch = rope.length * 1.05;
+      // Hard limit - allow significant stretch before clamping
+      const maxStretch = rope.length * 1.15;
       if (newDist > maxStretch) {
-        playerCenterX = rope.anchorX + radialX * maxStretch;
-        playerCenterY = rope.anchorY + radialY * maxStretch;
+        // Soft clamp - gradually pull back rather than snap
+        const excessStretch = newDist - maxStretch;
+        playerCenterX -= radialX * excessStretch * 0.5;
+        playerCenterY -= radialY * excessStretch * 0.5;
       }
-    } else if (newDist < rope.length * 0.95) {
-      // Rope has slack - apply very gentle pull to encourage full extension
-      // This makes the rope feel more natural as it tends toward full length
+    } else if (newDist < rope.length * 0.85) {
+      // Rope has slack - very gentle pull toward extension
       const slack = rope.length - newDist;
-      const gentlePull = slack * 0.02;
+      const gentlePull = slack * 0.008;
       newPlayer.velocity.x += radialX * gentlePull;
       newPlayer.velocity.y += radialY * gentlePull;
     }
