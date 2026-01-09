@@ -47,7 +47,8 @@ export function renderLevel(
 
   // Render ropes
   levelData.ropes.forEach((rope) => {
-    renderRope(ctx, rope);
+    const isPlayerAttached = gameState.player.isOnRope && gameState.player.attachedRopeId === rope.id;
+    renderRope(ctx, rope, isPlayerAttached);
   });
 }
 
@@ -458,34 +459,53 @@ function renderExitZone(
 
 function renderRope(
   ctx: CanvasRenderingContext2D,
-  rope: { anchorX: number; anchorY: number; length: number; angle: number }
+  rope: { anchorX: number; anchorY: number; length: number; angle: number },
+  isPlayerAttached: boolean = false
 ): void {
   ctx.strokeStyle = COLORS.platform;
-  ctx.lineWidth = 4;
 
   const endX = rope.anchorX + Math.sin(rope.angle) * rope.length;
   const endY = rope.anchorY + Math.cos(rope.angle) * rope.length;
 
-  // Draw rope with slight curve
+  // Draw rope segments for more realistic look
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+
+  // Draw rope as multiple segments with slight sway
   ctx.beginPath();
   ctx.moveTo(rope.anchorX, rope.anchorY);
 
-  // Add sag to rope
-  const midX = (rope.anchorX + endX) / 2;
-  const midY = (rope.anchorY + endY) / 2 + 10;
-  ctx.quadraticCurveTo(midX, midY, endX, endY);
+  // Draw rope with gentle curve based on angle
+  const segments = 8;
+  for (let i = 1; i <= segments; i++) {
+    const t = i / segments;
+    const segX = rope.anchorX + Math.sin(rope.angle) * rope.length * t;
+    const segY = rope.anchorY + Math.cos(rope.angle) * rope.length * t;
+    // Add slight sway perpendicular to rope direction
+    const sway = Math.sin(t * Math.PI) * 3 * Math.cos(rope.angle);
+    ctx.lineTo(segX + sway, segY);
+  }
   ctx.stroke();
 
-  // Anchor point
+  // Anchor point - metal bracket
   ctx.fillStyle = COLORS.platform;
   ctx.beginPath();
   ctx.arc(rope.anchorX, rope.anchorY, 8, 0, Math.PI * 2);
   ctx.fill();
 
-  // End knot
+  // Inner anchor detail
+  ctx.fillStyle = COLORS.accent;
   ctx.beginPath();
-  ctx.arc(endX, endY, 6, 0, Math.PI * 2);
+  ctx.arc(rope.anchorX, rope.anchorY, 4, 0, Math.PI * 2);
   ctx.fill();
+
+  // End knot (only show if player not attached)
+  if (!isPlayerAttached) {
+    ctx.fillStyle = COLORS.platform;
+    ctx.beginPath();
+    ctx.arc(endX, endY, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // Render sparse grass on top of a platform

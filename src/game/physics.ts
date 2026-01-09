@@ -7,8 +7,18 @@ import {
   InputState,
   Vector2D,
   LevelData,
+  Rope,
 } from '../types/game';
-import { GAME_CONFIG, GROUND_FRICTION, AIR_FRICTION, PUSH_SPEED } from './constants';
+import {
+  GAME_CONFIG,
+  GROUND_FRICTION,
+  AIR_FRICTION,
+  PUSH_SPEED,
+  ROPE_GRAVITY,
+  ROPE_DAMPING,
+  ROPE_SWING_FORCE,
+  ROPE_JUMP_BOOST,
+} from './constants';
 import {
   checkPlatformCollision,
   checkPushableCollision,
@@ -23,6 +33,11 @@ export function updatePlayerPhysics(
   deltaTime: number
 ): Player {
   if (player.isDead) return player;
+
+  // If on rope, skip normal physics (handled separately in updateRopePhysics)
+  if (player.isOnRope) {
+    return player;
+  }
 
   const dt = deltaTime / 16.67; // Normalize to 60fps
   let newPlayer = { ...player };
@@ -288,4 +303,134 @@ export function updateMovingPlatforms(
 
     return newPlatform;
   });
+}
+
+// Rope physics - pendulum simulation
+export function updateRopePhysics(
+  rope: Rope,
+  player: Player,
+  input: InputState,
+  deltaTime: number
+): { rope: Rope; player: Player } {
+  if (!player.isOnRope || player.attachedRopeId !== rope.id) {
+    return { rope, player };
+  }
+
+  const dt = deltaTime / 16.67;
+  const newRope = { ...rope };
+  let newPlayer = { ...player };
+
+  // Pendulum physics
+  // Angular acceleration from gravity: α = -(g/L) * sin(θ)
+  const angularAcceleration = -ROPE_GRAVITY * Math.sin(newRope.angle);
+
+  // Player input affects swing
+  if (input.left) {
+    newRope.angularVelocity -= ROPE_SWING_FORCE * dt;
+    newPlayer.facingRight = false;
+  }
+  if (input.right) {
+    newRope.angularVelocity += ROPE_SWING_FORCE * dt;
+    newPlayer.facingRight = true;
+  }
+
+  // Update angular velocity and apply damping
+  newRope.angularVelocity += angularAcceleration * dt;
+  newRope.angularVelocity *= Math.pow(ROPE_DAMPING, dt);
+
+  // Update angle
+  newRope.angle += newRope.angularVelocity * dt;
+
+  // Clamp angle to prevent full rotations
+  newRope.angle = clamp(newRope.angle, -Math.PI * 0.45, Math.PI * 0.45);
+
+  // Calculate player position at end of rope
+  const playerX = newRope.anchorX + Math.sin(newRope.angle) * newRope.length;
+  const playerY = newRope.anchorY + Math.cos(newRope.angle) * newRope.length;
+
+  // Update player position (center player on rope end)
+  newPlayer.position.x = playerX - newPlayer.width / 2;
+  newPlayer.position.y = playerY - newPlayer.height / 2;
+
+  // Store velocity for when player releases (tangent to swing)
+  const tangentVelX = newRope.angularVelocity * newRope.length * Math.cos(newRope.angle);
+  const tangentVelY = -newRope.angularVelocity * newRope.length * Math.sin(newRope.angle);
+  newPlayer.velocity.x = tangentVelX;
+  newPlayer.velocity.y = tangentVelY;
+
+  // Update animation state
+  newPlayer.animationState = 'swinging';
+  newPlayer.isGrounded = false;
+  newPlayer.isJumping = false;
+
+  return { rope: newRope, player: newPlayer };
+}
+
+// Check if player can grab a rope and handle attachment
+export function checkRopeGrab(
+  player: Player,
+  ropes: Rope[],
+  input: InputState,
+  grabDistance: number
+): { player: Player; ropes: Rope[] } {
+  // If already on rope, check for jump release
+  if (player.isOnRope) {
+    if (input.jump) {
+      // Release from rope with boosted velocity
+      const newPlayer = { ...player };
+      newPlayer.isOnRope = false;
+      newPlayer.attachedRopeId = null;
+      newPlayer.velocity.x *= ROPE_JUMP_BOOST;
+      newPlayer.velocity.y = Math.min(newPlayer.velocity.y, -GAME_CONFIG.playerJumpForce * 0.8);
+      newPlayer.isJumping = true;
+      newPlayer.animationState = 'jumping';
+      return { player: newPlayer, ropes };
+    }
+    return { player, ropes };
+  }
+
+  // Check for rope grab (action button while in air)
+  if (!input.action || player.isGrounded) {
+    return { player, ropes };
+  }
+
+  const playerCenterX = player.position.x + player.width / 2;
+  const playerCenterY = player.position.y + player.height / 2;
+
+  for (const rope of ropes) {
+    // Calculate rope end position
+    const ropeEndX = rope.anchorX + Math.sin(rope.angle) * rope.length;
+    const ropeEndY = rope.anchorY + Math.cos(rope.angle) * rope.length;
+
+    // Check distance to rope end
+    const dx = playerCenterX - ropeEndX;
+    const dy = playerCenterY - ropeEndY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < grabDistance) {
+      // Attach to rope
+      const newPlayer = { ...player };
+      newPlayer.isOnRope = true;
+      newPlayer.attachedRopeId = rope.id;
+      newPlayer.isGrounded = false;
+      newPlayer.isJumping = false;
+      newPlayer.animationState = 'swinging';
+
+      // Transfer player momentum to rope
+      const momentumToAngular = player.velocity.x * 0.01;
+      const newRopes = ropes.map((r) => {
+        if (r.id === rope.id) {
+          return {
+            ...r,
+            angularVelocity: r.angularVelocity + momentumToAngular,
+          };
+        }
+        return r;
+      });
+
+      return { player: newPlayer, ropes: newRopes };
+    }
+  }
+
+  return { player, ropes };
 }
