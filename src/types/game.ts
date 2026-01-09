@@ -21,6 +21,9 @@ export interface Player {
   isJumping: boolean;
   isDead: boolean;
   isGrabbing: boolean;
+  isOnRope: boolean;
+  attachedRopeId: string | null;
+  ropeGrabCooldown: number;
   facingRight: boolean;
   animationState: PlayerAnimationState;
 }
@@ -33,6 +36,7 @@ export type PlayerAnimationState =
   | 'falling'
   | 'grabbing'
   | 'pushing'
+  | 'swinging'
   | 'dying';
 
 export interface Platform {

@@ -54,6 +54,9 @@ export const level1: LevelData = {
     { id: 'plat-8', x: 2800, y: 450, width: 120, height: 20, type: 'solid' },
     { id: 'plat-9', x: 3000, y: 380, width: 100, height: 20, type: 'one-way' },
 
+    // Platform to reach rope
+    { id: 'rope-plat', x: 1720, y: 480, width: 80, height: 20, type: 'solid' },
+
     // Final section platforms
     { id: 'plat-10', x: 3500, y: 500, width: 100, height: 20, type: 'solid' },
     { id: 'plat-11', x: 3700, y: 420, width: 120, height: 20, type: 'solid' },
@@ -139,8 +142,8 @@ export const level1: LevelData = {
   ],
 
   ropes: [
-    // Rope to swing over gap
-    { id: 'rope-1', anchorX: 1850, anchorY: 200, length: 200, angle: 0, angularVelocity: 0 },
+    // Rope to swing over gap (extended length to be reachable from rope-plat)
+    { id: 'rope-1', anchorX: 1850, anchorY: 150, length: 280, angle: 0, angularVelocity: 0 },
   ],
 
   checkpoints: [

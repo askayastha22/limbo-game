@@ -543,6 +543,50 @@ function getPose(state: string, velocity: { x: number; y: number }): CharacterPo
       pose.backArm = { shoulderX: 2, shoulderY: -15, elbowX: 7, elbowY: -12, handX: 10, handY: -10 };
       break;
     }
+
+    case 'swinging': {
+      // Hanging from rope, swinging
+      const swingPhase = Math.sin(animTime * 3) * 0.3;
+
+      // Legs dangle and sway with momentum
+      pose.frontLeg = {
+        hipX: 1 + swingPhase,
+        hipY: -4,
+        kneeX: 2 + swingPhase * 1.5,
+        kneeY: 6,
+        footX: 3 + swingPhase * 2,
+        footY: 2,
+      };
+      pose.backLeg = {
+        hipX: -1 + swingPhase,
+        hipY: -4,
+        kneeX: -2 + swingPhase * 1.5,
+        kneeY: 5,
+        footX: -1 + swingPhase * 2,
+        footY: 1,
+      };
+
+      // Arms reaching up to hold rope
+      pose.frontArm = {
+        shoulderX: 2,
+        shoulderY: -17,
+        elbowX: 3,
+        elbowY: -24,
+        handX: 2,
+        handY: -30,
+      };
+      pose.backArm = {
+        shoulderX: -2,
+        shoulderY: -17,
+        elbowX: -3,
+        elbowY: -24,
+        handX: -2,
+        handY: -30,
+      };
+
+      pose.headBob = -1; // Head tilted back looking up
+      break;
+    }
   }
 
   return pose;
