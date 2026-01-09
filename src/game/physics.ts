@@ -14,10 +14,9 @@ import {
   GROUND_FRICTION,
   AIR_FRICTION,
   PUSH_SPEED,
-  ROPE_GRAVITY,
-  ROPE_DAMPING,
-  ROPE_SWING_FORCE,
-  ROPE_JUMP_BOOST,
+  ROPE_SWING_ACCEL,
+  ROPE_AIR_RESISTANCE,
+  ROPE_MAX_SWING_SPEED,
 } from './constants';
 import {
   checkPlatformCollision,
@@ -305,7 +304,9 @@ export function updateMovingPlatforms(
   });
 }
 
-// Rope physics - pendulum simulation
+// Rope physics - constraint-based swing
+// Based on best practices: treat rope as circular constraint, apply world gravity,
+// use tangent force for player input, natural momentum on release
 export function updateRopePhysics(
   rope: Rope,
   player: Player,
@@ -320,43 +321,85 @@ export function updateRopePhysics(
   const newRope = { ...rope };
   let newPlayer = { ...player };
 
-  // Pendulum physics
-  // Angular acceleration from gravity: α = -(g/L) * sin(θ)
-  const angularAcceleration = -ROPE_GRAVITY * Math.sin(newRope.angle);
+  // Get player center position
+  let playerCenterX = newPlayer.position.x + newPlayer.width / 2;
+  let playerCenterY = newPlayer.position.y + newPlayer.height / 2;
 
-  // Player input affects swing
-  if (input.left) {
-    newRope.angularVelocity -= ROPE_SWING_FORCE * dt;
-    newPlayer.facingRight = false;
+  // Step 1: Apply world gravity to velocity
+  newPlayer.velocity.y += GAME_CONFIG.gravity * dt * 0.8; // Slightly reduced for better feel
+
+  // Step 2: Apply player input as tangent force (perpendicular to rope)
+  // Calculate current rope direction
+  const ropeVecX = playerCenterX - rope.anchorX;
+  const ropeVecY = playerCenterY - rope.anchorY;
+  const ropeLen = Math.sqrt(ropeVecX * ropeVecX + ropeVecY * ropeVecY);
+
+  if (ropeLen > 0) {
+    // Tangent direction (perpendicular to rope, pointing right when rope hangs down)
+    const tangentX = -ropeVecY / ropeLen;
+    const tangentY = ropeVecX / ropeLen;
+
+    // Apply swing force in tangent direction based on input
+    if (input.left) {
+      newPlayer.velocity.x -= tangentX * ROPE_SWING_ACCEL * dt;
+      newPlayer.velocity.y -= tangentY * ROPE_SWING_ACCEL * dt;
+      newPlayer.facingRight = false;
+    }
+    if (input.right) {
+      newPlayer.velocity.x += tangentX * ROPE_SWING_ACCEL * dt;
+      newPlayer.velocity.y += tangentY * ROPE_SWING_ACCEL * dt;
+      newPlayer.facingRight = true;
+    }
   }
-  if (input.right) {
-    newRope.angularVelocity += ROPE_SWING_FORCE * dt;
-    newPlayer.facingRight = true;
+
+  // Step 3: Apply air resistance
+  newPlayer.velocity.x *= ROPE_AIR_RESISTANCE;
+  newPlayer.velocity.y *= ROPE_AIR_RESISTANCE;
+
+  // Cap maximum swing speed
+  newPlayer.velocity.x = clamp(newPlayer.velocity.x, -ROPE_MAX_SWING_SPEED, ROPE_MAX_SWING_SPEED);
+
+  // Step 4: Update position based on velocity
+  playerCenterX += newPlayer.velocity.x * dt;
+  playerCenterY += newPlayer.velocity.y * dt;
+
+  // Step 5: Constrain to rope length (this is the key constraint-based part)
+  // Calculate new distance from anchor
+  const newRopeVecX = playerCenterX - rope.anchorX;
+  const newRopeVecY = playerCenterY - rope.anchorY;
+  const newDist = Math.sqrt(newRopeVecX * newRopeVecX + newRopeVecY * newRopeVecY);
+
+  if (newDist > rope.length && newDist > 0) {
+    // Player went beyond rope length - constrain them back
+    const constraintX = (newRopeVecX / newDist) * rope.length;
+    const constraintY = (newRopeVecY / newDist) * rope.length;
+
+    playerCenterX = rope.anchorX + constraintX;
+    playerCenterY = rope.anchorY + constraintY;
+
+    // Adjust velocity to slide along the constraint (remove radial component)
+    const radialX = newRopeVecX / newDist;
+    const radialY = newRopeVecY / newDist;
+    const radialVel = newPlayer.velocity.x * radialX + newPlayer.velocity.y * radialY;
+
+    // Only remove outward radial velocity (allow inward movement)
+    if (radialVel > 0) {
+      newPlayer.velocity.x -= radialVel * radialX;
+      newPlayer.velocity.y -= radialVel * radialY;
+    }
   }
 
-  // Update angular velocity and apply damping
-  newRope.angularVelocity += angularAcceleration * dt;
-  newRope.angularVelocity *= Math.pow(ROPE_DAMPING, dt);
+  // Step 6: Update rope angle based on player position (for rendering)
+  const finalRopeVecX = playerCenterX - rope.anchorX;
+  const finalRopeVecY = playerCenterY - rope.anchorY;
+  newRope.angle = Math.atan2(finalRopeVecX, finalRopeVecY);
 
-  // Update angle
-  newRope.angle += newRope.angularVelocity * dt;
+  // Store angular velocity for rendering (approximate from position change)
+  newRope.angularVelocity = newPlayer.velocity.x * 0.01;
 
-  // Clamp angle to prevent full rotations
-  newRope.angle = clamp(newRope.angle, -Math.PI * 0.45, Math.PI * 0.45);
-
-  // Calculate player position at end of rope
-  const playerX = newRope.anchorX + Math.sin(newRope.angle) * newRope.length;
-  const playerY = newRope.anchorY + Math.cos(newRope.angle) * newRope.length;
-
-  // Update player position (center player on rope end)
-  newPlayer.position.x = playerX - newPlayer.width / 2;
-  newPlayer.position.y = playerY - newPlayer.height / 2;
-
-  // Store velocity for when player releases (tangent to swing)
-  const tangentVelX = newRope.angularVelocity * newRope.length * Math.cos(newRope.angle);
-  const tangentVelY = -newRope.angularVelocity * newRope.length * Math.sin(newRope.angle);
-  newPlayer.velocity.x = tangentVelX;
-  newPlayer.velocity.y = tangentVelY;
+  // Update player position from center
+  newPlayer.position.x = playerCenterX - newPlayer.width / 2;
+  newPlayer.position.y = playerCenterY - newPlayer.height / 2;
 
   // Update animation state
   newPlayer.animationState = 'swinging';
@@ -380,13 +423,13 @@ export function checkRopeGrab(
 
     // Only allow release after cooldown expires (prevents accidental immediate release)
     if (input.jump && cooldown === 0) {
-      // Release from rope with boosted velocity
+      // Release from rope - keep natural momentum, just add a small upward boost
       const newPlayer = { ...player };
       newPlayer.isOnRope = false;
       newPlayer.attachedRopeId = null;
       newPlayer.ropeGrabCooldown = 0;
-      newPlayer.velocity.x *= ROPE_JUMP_BOOST;
-      newPlayer.velocity.y = Math.min(newPlayer.velocity.y, -GAME_CONFIG.playerJumpForce * 0.8);
+      // Add a small jump impulse (not a multiplier) for controlled release
+      newPlayer.velocity.y = Math.min(newPlayer.velocity.y - 5, -3);
       newPlayer.isJumping = true;
       newPlayer.animationState = 'jumping';
       return { player: newPlayer, ropes };
@@ -440,24 +483,13 @@ export function checkRopeGrab(
       newPlayer.isGrounded = false;
       newPlayer.isJumping = false;
       newPlayer.animationState = 'swinging';
-      // Set cooldown to prevent immediate release (10 frames = ~167ms at 60fps)
-      newPlayer.ropeGrabCooldown = 10;
+      // Set cooldown to prevent immediate release (15 frames = ~250ms at 60fps)
+      newPlayer.ropeGrabCooldown = 15;
 
-      // Transfer player momentum to rope (significant transfer for natural swing)
-      const momentumToAngular = player.velocity.x * 0.05;
-      // Also add initial swing based on approach direction
-      const initialSwing = player.velocity.x > 0 ? 0.02 : (player.velocity.x < 0 ? -0.02 : 0);
-      const newRopes = ropes.map((r) => {
-        if (r.id === rope.id) {
-          return {
-            ...r,
-            angularVelocity: r.angularVelocity + momentumToAngular + initialSwing,
-          };
-        }
-        return r;
-      });
+      // Keep player's current velocity - the constraint-based physics will handle it naturally
+      // No artificial momentum transfer needed
 
-      return { player: newPlayer, ropes: newRopes };
+      return { player: newPlayer, ropes };
     }
   }
 

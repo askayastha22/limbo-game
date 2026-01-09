@@ -21,12 +21,11 @@ export const GROUND_FRICTION = 0.8;
 export const AIR_FRICTION = 0.95;
 export const PUSH_SPEED = 2;
 
-// Rope physics constants
-export const ROPE_GRAVITY = 0.08;
-export const ROPE_DAMPING = 0.998;
+// Rope physics constants (constraint-based swing)
 export const ROPE_GRAB_DISTANCE = 60;
-export const ROPE_SWING_FORCE = 0.012;
-export const ROPE_JUMP_BOOST = 1.3;
+export const ROPE_SWING_ACCEL = 0.15;      // How fast player can pump the swing
+export const ROPE_AIR_RESISTANCE = 0.99;   // Subtle damping per frame
+export const ROPE_MAX_SWING_SPEED = 8;     // Cap on horizontal velocity while swinging
 
 // Animation timing (in frames)
 export const ANIMATION_SPEEDS = {
