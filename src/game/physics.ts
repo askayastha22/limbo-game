@@ -389,8 +389,10 @@ export function checkRopeGrab(
     return { player, ropes };
   }
 
-  // Check for rope grab (action button while in air)
-  if (!input.action || player.isGrounded) {
+  // Check for rope grab (action button while in air or jumping)
+  // Allow grab if pressing action and either not grounded OR moving upward (jumping)
+  const isInAir = !player.isGrounded || player.velocity.y < 0;
+  if (!input.action || !isInAir) {
     return { player, ropes };
   }
 
@@ -402,9 +404,23 @@ export function checkRopeGrab(
     const ropeEndX = rope.anchorX + Math.sin(rope.angle) * rope.length;
     const ropeEndY = rope.anchorY + Math.cos(rope.angle) * rope.length;
 
-    // Check distance to rope end
-    const dx = playerCenterX - ropeEndX;
-    const dy = playerCenterY - ropeEndY;
+    // Check distance to rope LINE (not just end point)
+    // Find closest point on rope to player
+    const ropeVecX = ropeEndX - rope.anchorX;
+    const ropeVecY = ropeEndY - rope.anchorY;
+    const playerToAnchorX = playerCenterX - rope.anchorX;
+    const playerToAnchorY = playerCenterY - rope.anchorY;
+
+    // Project player position onto rope line
+    const ropeLen = rope.length;
+    const dot = (playerToAnchorX * ropeVecX + playerToAnchorY * ropeVecY) / (ropeLen * ropeLen);
+    const t = clamp(dot, 0.3, 1); // Only grab lower 70% of rope (not near anchor)
+
+    const closestX = rope.anchorX + ropeVecX * t;
+    const closestY = rope.anchorY + ropeVecY * t;
+
+    const dx = playerCenterX - closestX;
+    const dy = playerCenterY - closestY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance < grabDistance) {

@@ -24,7 +24,7 @@ export const PUSH_SPEED = 2;
 // Rope physics constants
 export const ROPE_GRAVITY = 0.015;
 export const ROPE_DAMPING = 0.995;
-export const ROPE_GRAB_DISTANCE = 40;
+export const ROPE_GRAB_DISTANCE = 60;
 export const ROPE_SWING_FORCE = 0.003;
 export const ROPE_JUMP_BOOST = 1.3;
 
