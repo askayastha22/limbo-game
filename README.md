@@ -2,6 +2,10 @@
 
 A dark, atmospheric 2D platformer inspired by Limbo, built with React and TypeScript. Features silhouette-style graphics, physics-based gameplay, and puzzle mechanics.
 
+## Demo
+
+https://youtu.be/QcV7n6qml5k
+
 ## Features
 
 - Silhouette art style with high-contrast visuals
