@@ -23,6 +23,7 @@ export interface Player {
   isGrabbing: boolean;
   isOnRope: boolean;
   attachedRopeId: string | null;
+  ropeGrabCooldown: number;
   facingRight: boolean;
   animationState: PlayerAnimationState;
 }

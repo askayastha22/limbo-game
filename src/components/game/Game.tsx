@@ -24,6 +24,7 @@ const createInitialPlayer = (startPosition: Vector2D): Player => ({
   isGrabbing: false,
   isOnRope: false,
   attachedRopeId: null,
+  ropeGrabCooldown: 0,
   facingRight: true,
   animationState: 'idle',
 });

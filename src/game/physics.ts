@@ -375,16 +375,25 @@ export function checkRopeGrab(
 ): { player: Player; ropes: Rope[] } {
   // If already on rope, check for jump release
   if (player.isOnRope) {
-    if (input.jump) {
+    // Decrease cooldown
+    const cooldown = Math.max(0, player.ropeGrabCooldown - 1);
+
+    // Only allow release after cooldown expires (prevents accidental immediate release)
+    if (input.jump && cooldown === 0) {
       // Release from rope with boosted velocity
       const newPlayer = { ...player };
       newPlayer.isOnRope = false;
       newPlayer.attachedRopeId = null;
+      newPlayer.ropeGrabCooldown = 0;
       newPlayer.velocity.x *= ROPE_JUMP_BOOST;
       newPlayer.velocity.y = Math.min(newPlayer.velocity.y, -GAME_CONFIG.playerJumpForce * 0.8);
       newPlayer.isJumping = true;
       newPlayer.animationState = 'jumping';
       return { player: newPlayer, ropes };
+    }
+    // Update cooldown even if not releasing
+    if (cooldown !== player.ropeGrabCooldown) {
+      return { player: { ...player, ropeGrabCooldown: cooldown }, ropes };
     }
     return { player, ropes };
   }
@@ -431,6 +440,8 @@ export function checkRopeGrab(
       newPlayer.isGrounded = false;
       newPlayer.isJumping = false;
       newPlayer.animationState = 'swinging';
+      // Set cooldown to prevent immediate release (10 frames = ~167ms at 60fps)
+      newPlayer.ropeGrabCooldown = 10;
 
       // Transfer player momentum to rope
       const momentumToAngular = player.velocity.x * 0.01;
