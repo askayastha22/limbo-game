@@ -363,29 +363,47 @@ export function updateRopePhysics(
   playerCenterX += newPlayer.velocity.x * dt;
   playerCenterY += newPlayer.velocity.y * dt;
 
-  // Step 5: Constrain to rope length (this is the key constraint-based part)
+  // Step 5: Soft rope constraint with elasticity
   // Calculate new distance from anchor
   const newRopeVecX = playerCenterX - rope.anchorX;
   const newRopeVecY = playerCenterY - rope.anchorY;
   const newDist = Math.sqrt(newRopeVecX * newRopeVecX + newRopeVecY * newRopeVecY);
 
-  if (newDist > rope.length && newDist > 0) {
-    // Player went beyond rope length - constrain them back
-    const constraintX = (newRopeVecX / newDist) * rope.length;
-    const constraintY = (newRopeVecY / newDist) * rope.length;
-
-    playerCenterX = rope.anchorX + constraintX;
-    playerCenterY = rope.anchorY + constraintY;
-
-    // Adjust velocity to slide along the constraint (remove radial component)
+  if (newDist > 0) {
     const radialX = newRopeVecX / newDist;
     const radialY = newRopeVecY / newDist;
-    const radialVel = newPlayer.velocity.x * radialX + newPlayer.velocity.y * radialY;
 
-    // Only remove outward radial velocity (allow inward movement)
-    if (radialVel > 0) {
-      newPlayer.velocity.x -= radialVel * radialX;
-      newPlayer.velocity.y -= radialVel * radialY;
+    if (newDist > rope.length) {
+      // Rope is taut - apply soft spring force instead of hard constraint
+      const overstretch = newDist - rope.length;
+      const springStrength = 0.3; // How quickly rope pulls back (0.3 = soft, 1.0 = rigid)
+      const dampening = 0.8; // Reduce radial velocity when taut
+
+      // Apply spring force pulling player back toward rope length
+      const pullForce = overstretch * springStrength;
+      playerCenterX -= radialX * pullForce;
+      playerCenterY -= radialY * pullForce;
+
+      // Dampen outward radial velocity (but don't eliminate it completely)
+      const radialVel = newPlayer.velocity.x * radialX + newPlayer.velocity.y * radialY;
+      if (radialVel > 0) {
+        newPlayer.velocity.x -= radialVel * radialX * dampening;
+        newPlayer.velocity.y -= radialVel * radialY * dampening;
+      }
+
+      // Hard limit - never let player go too far beyond rope length
+      const maxStretch = rope.length * 1.05;
+      if (newDist > maxStretch) {
+        playerCenterX = rope.anchorX + radialX * maxStretch;
+        playerCenterY = rope.anchorY + radialY * maxStretch;
+      }
+    } else if (newDist < rope.length * 0.95) {
+      // Rope has slack - apply very gentle pull to encourage full extension
+      // This makes the rope feel more natural as it tends toward full length
+      const slack = rope.length - newDist;
+      const gentlePull = slack * 0.02;
+      newPlayer.velocity.x += radialX * gentlePull;
+      newPlayer.velocity.y += radialY * gentlePull;
     }
   }
 
