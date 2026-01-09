@@ -8,7 +8,7 @@ import { useGameLoop } from '../../hooks/useGameLoop';
 import { useAudio } from '../../hooks/useAudio';
 import { GameState, Player, LevelData, Vector2D } from '../../types/game';
 import { PLAYER_WIDTH, PLAYER_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../game/constants';
-import { updatePlayerPhysics, updatePushablePhysics, updateMovingPlatforms, updateRopePhysics, checkRopeGrab } from '../../game/physics';
+import { updatePlayerPhysics, updatePushablePhysics, updateMovingPlatforms, updateRopePhysics, updateIdleRopePhysics, checkRopeGrab } from '../../game/physics';
 import { ROPE_GRAB_DISTANCE } from '../../game/constants';
 import { checkHazardCollision, rectIntersect, clamp } from '../../utils/collision';
 import { levels } from '../../levels';
@@ -217,6 +217,11 @@ export const Game: React.FC = () => {
             );
           }
         }
+
+        // Update idle ropes (swing back to natural position when player not attached)
+        levelData.ropes = levelData.ropes.map((r) =>
+          r.id !== currentPlayer.attachedRopeId ? updateIdleRopePhysics(r, deltaTime) : r
+        );
 
         // Update player physics (skipped if on rope)
         const newPlayer = updatePlayerPhysics(currentPlayer, input, levelData, deltaTime);

@@ -304,6 +304,38 @@ export function updateMovingPlatforms(
   });
 }
 
+// Update rope when player is NOT attached - swing back to natural hanging position
+export function updateIdleRopePhysics(
+  rope: Rope,
+  deltaTime: number
+): Rope {
+  const dt = deltaTime / 16.67;
+  const newRope = { ...rope };
+
+  // Apply pendulum physics to swing rope back to vertical
+  // Gravity creates a restoring force proportional to sin(angle)
+  const gravityEffect = 0.003; // Gentle restoring force
+  const damping = 0.98; // Air resistance
+
+  // Angular acceleration from gravity (pendulum equation: a = -g/L * sin(theta))
+  const angularAccel = -gravityEffect * Math.sin(newRope.angle);
+  newRope.angularVelocity += angularAccel * dt;
+
+  // Apply damping
+  newRope.angularVelocity *= damping;
+
+  // Update angle
+  newRope.angle += newRope.angularVelocity * dt;
+
+  // Stop tiny oscillations
+  if (Math.abs(newRope.angle) < 0.01 && Math.abs(newRope.angularVelocity) < 0.001) {
+    newRope.angle = 0;
+    newRope.angularVelocity = 0;
+  }
+
+  return newRope;
+}
+
 // Rope physics - constraint-based swing
 // Based on best practices: treat rope as circular constraint, apply world gravity,
 // use tangent force for player input, natural momentum on release
