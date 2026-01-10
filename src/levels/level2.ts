@@ -218,6 +218,15 @@ export const level2: LevelData = {
     { id: 'rope-2', anchorX: 700, anchorY: 300, length: 250, angle: 0.3, angularVelocity: 0 },
   ],
 
+  ladders: [
+    // Industrial ladder in vertical climbing section
+    { id: 'ladder-4', x: 940, y: 320, width: 25, height: 300, rungSpacing: 22 },
+    // Ladder to reach upper walkway
+    { id: 'ladder-5', x: 1570, y: 220, width: 25, height: 180, rungSpacing: 22 },
+    // Ladder in final section
+    { id: 'ladder-6', x: 4450, y: 260, width: 25, height: 360, rungSpacing: 22 },
+  ],
+
   checkpoints: [
     { id: 'cp-4', x: 1050, y: 570, width: 40, height: 50, isActivated: false },
     { id: 'cp-5', x: 1750, y: 170, width: 40, height: 50, isActivated: false },

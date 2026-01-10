@@ -8,8 +8,8 @@ import { useGameLoop } from '../../hooks/useGameLoop';
 import { useAudio } from '../../hooks/useAudio';
 import { GameState, Player, LevelData, Vector2D } from '../../types/game';
 import { PLAYER_WIDTH, PLAYER_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../game/constants';
-import { updatePlayerPhysics, updatePushablePhysics, updateMovingPlatforms, updateRopePhysics, updateIdleRopePhysics, checkRopeGrab } from '../../game/physics';
-import { ROPE_GRAB_DISTANCE } from '../../game/constants';
+import { updatePlayerPhysics, updatePushablePhysics, updateMovingPlatforms, updateRopePhysics, updateIdleRopePhysics, checkRopeGrab, updateLadderPhysics, checkLadderGrab } from '../../game/physics';
+import { ROPE_GRAB_DISTANCE, LADDER_GRAB_DISTANCE } from '../../game/constants';
 import { checkHazardCollision, rectIntersect, clamp } from '../../utils/collision';
 import { levels } from '../../levels';
 
@@ -25,6 +25,9 @@ const createInitialPlayer = (startPosition: Vector2D): Player => ({
   isOnRope: false,
   attachedRopeId: null,
   ropeGrabCooldown: 0,
+  isOnLadder: false,
+  attachedLadderId: null,
+  ladderGrabCooldown: 0,
   facingRight: true,
   animationState: 'idle',
 });
@@ -223,7 +226,18 @@ export const Game: React.FC = () => {
           r.id !== currentPlayer.attachedRopeId ? updateIdleRopePhysics(r, deltaTime) : r
         );
 
-        // Update player physics (skipped if on rope)
+        // Check for ladder grab/release and update ladder physics
+        currentPlayer = checkLadderGrab(currentPlayer, levelData.ladders || [], input, LADDER_GRAB_DISTANCE);
+
+        // Update ladder physics if player is on a ladder
+        if (currentPlayer.isOnLadder && currentPlayer.attachedLadderId) {
+          const attachedLadder = (levelData.ladders || []).find((l) => l.id === currentPlayer.attachedLadderId);
+          if (attachedLadder) {
+            currentPlayer = updateLadderPhysics(attachedLadder, currentPlayer, input, deltaTime);
+          }
+        }
+
+        // Update player physics (skipped if on rope or ladder)
         const newPlayer = updatePlayerPhysics(currentPlayer, input, levelData, deltaTime);
 
         // Check hazard collisions

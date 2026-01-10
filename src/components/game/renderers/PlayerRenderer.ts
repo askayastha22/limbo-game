@@ -587,6 +587,51 @@ function getPose(state: string, velocity: { x: number; y: number }): CharacterPo
       pose.headBob = -1; // Head tilted back looking up
       break;
     }
+
+    case 'climbing': {
+      // Climbing ladder animation - alternating arm/leg movement
+      const climbPhase = Math.sin(animTime * 6); // Faster cycle for climbing
+      const climbOffset = climbPhase * 3;
+
+      // Legs in climbing position - one up, one down
+      pose.frontLeg = {
+        hipX: 0,
+        hipY: -4,
+        kneeX: 1,
+        kneeY: 2 - climbOffset,
+        footX: 1,
+        footY: -2 - climbOffset,
+      };
+      pose.backLeg = {
+        hipX: 0,
+        hipY: -4,
+        kneeX: -1,
+        kneeY: 2 + climbOffset,
+        footX: -1,
+        footY: -2 + climbOffset,
+      };
+
+      // Arms reaching up to ladder rungs - alternating with legs
+      pose.frontArm = {
+        shoulderX: 2,
+        shoulderY: -17,
+        elbowX: 4,
+        elbowY: -22 + climbOffset,
+        handX: 5,
+        handY: -26 + climbOffset,
+      };
+      pose.backArm = {
+        shoulderX: -2,
+        shoulderY: -17,
+        elbowX: -4,
+        elbowY: -22 - climbOffset,
+        handX: -5,
+        handY: -26 - climbOffset,
+      };
+
+      pose.headBob = 0; // Head straight, looking at ladder
+      break;
+    }
   }
 
   return pose;

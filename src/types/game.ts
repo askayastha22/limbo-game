@@ -24,6 +24,9 @@ export interface Player {
   isOnRope: boolean;
   attachedRopeId: string | null;
   ropeGrabCooldown: number;
+  isOnLadder: boolean;
+  attachedLadderId: string | null;
+  ladderGrabCooldown: number;
   facingRight: boolean;
   animationState: PlayerAnimationState;
 }
@@ -37,6 +40,7 @@ export type PlayerAnimationState =
   | 'grabbing'
   | 'pushing'
   | 'swinging'
+  | 'climbing'
   | 'dying';
 
 export interface Platform {
@@ -98,6 +102,15 @@ export interface Rope {
   angularVelocity: number;
 }
 
+export interface Ladder {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rungSpacing: number;
+}
+
 export interface Checkpoint {
   id: string;
   x: number;
@@ -118,6 +131,7 @@ export interface LevelData {
   pushableObjects: PushableObject[];
   switches: Switch[];
   ropes: Rope[];
+  ladders: Ladder[];
   checkpoints: Checkpoint[];
   exitZone: Rectangle;
   ambientEffects: AmbientEffect[];

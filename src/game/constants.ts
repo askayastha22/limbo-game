@@ -27,6 +27,11 @@ export const ROPE_SWING_ACCEL = 0.15;      // How fast player can pump the swing
 export const ROPE_AIR_RESISTANCE = 0.99;   // Subtle damping per frame
 export const ROPE_MAX_SWING_SPEED = 8;     // Cap on horizontal velocity while swinging
 
+// Ladder physics constants
+export const LADDER_GRAB_DISTANCE = 25;    // How close player must be to grab ladder
+export const LADDER_CLIMB_SPEED = 4;       // Vertical movement speed when climbing
+export const LADDER_HORIZONTAL_SNAP = 5;   // Snap player to ladder center horizontally
+
 // Animation timing (in frames)
 export const ANIMATION_SPEEDS = {
   idle: 12,
@@ -35,6 +40,7 @@ export const ANIMATION_SPEEDS = {
   jumping: 1,
   falling: 1,
   pushing: 10,
+  climbing: 8,
   dying: 4,
 };
 
