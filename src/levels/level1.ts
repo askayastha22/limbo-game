@@ -146,6 +146,15 @@ export const level1: LevelData = {
     { id: 'rope-1', anchorX: 1850, anchorY: 150, length: 280, angle: 0, angularVelocity: 0 },
   ],
 
+  ladders: [
+    // Ladder near start to reach elevated platform
+    { id: 'ladder-1', x: 320, y: 500, width: 25, height: 120, rungSpacing: 20 },
+    // Ladder in puzzle area to reach higher platforms
+    { id: 'ladder-2', x: 2850, y: 380, width: 25, height: 240, rungSpacing: 20 },
+    // Ladder in final section
+    { id: 'ladder-3', x: 3650, y: 420, width: 25, height: 200, rungSpacing: 20 },
+  ],
+
   checkpoints: [
     { id: 'cp-1', x: 950, y: 570, width: 40, height: 50, isActivated: false },
     { id: 'cp-2', x: 2150, y: 570, width: 40, height: 50, isActivated: false },

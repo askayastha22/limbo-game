@@ -8,6 +8,7 @@ import {
   Vector2D,
   LevelData,
   Rope,
+  Ladder,
 } from '../types/game';
 import {
   GAME_CONFIG,
@@ -17,6 +18,8 @@ import {
   ROPE_SWING_ACCEL,
   ROPE_AIR_RESISTANCE,
   ROPE_MAX_SWING_SPEED,
+  LADDER_CLIMB_SPEED,
+  LADDER_HORIZONTAL_SNAP,
 } from './constants';
 import {
   checkPlatformCollision,
@@ -35,6 +38,11 @@ export function updatePlayerPhysics(
 
   // If on rope, skip normal physics (handled separately in updateRopePhysics)
   if (player.isOnRope) {
+    return player;
+  }
+
+  // If on ladder, skip normal physics (handled separately in updateLadderPhysics)
+  if (player.isOnLadder) {
     return player;
   }
 
@@ -545,4 +553,188 @@ export function checkRopeGrab(
   }
 
   return { player, ropes };
+}
+
+// Ladder physics - vertical climbing movement
+export function updateLadderPhysics(
+  ladder: Ladder,
+  player: Player,
+  input: InputState,
+  deltaTime: number
+): Player {
+  if (!player.isOnLadder || player.attachedLadderId !== ladder.id) {
+    return player;
+  }
+
+  const dt = deltaTime / 16.67;
+  const newPlayer = { ...player };
+
+  // Reset velocity
+  newPlayer.velocity.x = 0;
+  newPlayer.velocity.y = 0;
+
+  // Snap player horizontally to ladder center
+  const ladderCenterX = ladder.x + ladder.width / 2;
+  const playerCenterX = newPlayer.position.x + newPlayer.width / 2;
+  const snapDiff = ladderCenterX - playerCenterX;
+
+  if (Math.abs(snapDiff) > 1) {
+    newPlayer.position.x += snapDiff * 0.3; // Smooth snap
+  }
+
+  // Climbing movement
+  let isMoving = false;
+  if (input.jump) {
+    // Climb up
+    newPlayer.position.y -= LADDER_CLIMB_SPEED * dt;
+    isMoving = true;
+  }
+  if (input.left || input.right) {
+    // Allow slight horizontal adjustment while climbing
+    // But mainly this allows player to move off ladder sides
+  }
+
+  // Check if player wants to go down (not using jump key)
+  // In most games, down arrow/S is used, but we'll use the absence of jump
+  // when the player was on ground level or use action to descend
+  const playerBottom = newPlayer.position.y + newPlayer.height;
+  const ladderBottom = ladder.y + ladder.height;
+
+  // If player presses down (action while on ladder and not at bottom)
+  if (input.action && playerBottom < ladderBottom) {
+    newPlayer.position.y += LADDER_CLIMB_SPEED * dt;
+    isMoving = true;
+  }
+
+  // Constrain player to ladder bounds
+  const ladderTop = ladder.y;
+
+  // Can climb slightly above ladder top
+  if (newPlayer.position.y < ladderTop - newPlayer.height * 0.5) {
+    newPlayer.position.y = ladderTop - newPlayer.height * 0.5;
+  }
+
+  // Can't go below ladder bottom
+  if (playerBottom > ladderBottom) {
+    newPlayer.position.y = ladderBottom - newPlayer.height;
+    newPlayer.isGrounded = true;
+  }
+
+  // Update animation state
+  newPlayer.animationState = 'climbing';
+  newPlayer.isGrounded = false;
+  newPlayer.isJumping = false;
+
+  return newPlayer;
+}
+
+// Check if player can grab a ladder and handle attachment/detachment
+export function checkLadderGrab(
+  player: Player,
+  ladders: Ladder[],
+  input: InputState,
+  grabDistance: number
+): Player {
+  // If already on ladder, check for release
+  if (player.isOnLadder && player.attachedLadderId) {
+    // Decrease cooldown
+    const cooldown = Math.max(0, player.ladderGrabCooldown - 1);
+
+    // Find the attached ladder
+    const attachedLadder = ladders.find((l) => l.id === player.attachedLadderId);
+
+    if (attachedLadder) {
+      const playerBottom = player.position.y + player.height;
+      const ladderBottom = attachedLadder.y + attachedLadder.height;
+      const ladderTop = attachedLadder.y;
+
+      // Release if player reaches top and presses jump (climb off)
+      if (player.position.y <= ladderTop - player.height * 0.3 && input.jump && cooldown === 0) {
+        const newPlayer = { ...player };
+        newPlayer.isOnLadder = false;
+        newPlayer.attachedLadderId = null;
+        newPlayer.ladderGrabCooldown = 0;
+        newPlayer.velocity.y = -GAME_CONFIG.playerJumpForce * 0.5; // Small hop at top
+        newPlayer.isJumping = true;
+        newPlayer.animationState = 'jumping';
+        return newPlayer;
+      }
+
+      // Release if player reaches bottom
+      if (playerBottom >= ladderBottom) {
+        const newPlayer = { ...player };
+        newPlayer.isOnLadder = false;
+        newPlayer.attachedLadderId = null;
+        newPlayer.ladderGrabCooldown = 0;
+        newPlayer.isGrounded = true;
+        newPlayer.animationState = 'idle';
+        return newPlayer;
+      }
+
+      // Release if moving horizontally away from ladder
+      if ((input.left || input.right) && cooldown === 0) {
+        const playerCenterX = player.position.x + player.width / 2;
+        const ladderCenterX = attachedLadder.x + attachedLadder.width / 2;
+
+        // Only release if trying to move away from ladder
+        if ((input.left && playerCenterX > ladderCenterX) ||
+            (input.right && playerCenterX < ladderCenterX)) {
+          // Don't release yet, stay on ladder
+        } else {
+          // Release from ladder
+          const newPlayer = { ...player };
+          newPlayer.isOnLadder = false;
+          newPlayer.attachedLadderId = null;
+          newPlayer.ladderGrabCooldown = 0;
+          newPlayer.velocity.x = input.left ? -GAME_CONFIG.playerSpeed : GAME_CONFIG.playerSpeed;
+          newPlayer.animationState = 'falling';
+          return newPlayer;
+        }
+      }
+    }
+
+    // Update cooldown
+    if (cooldown !== player.ladderGrabCooldown) {
+      return { ...player, ladderGrabCooldown: cooldown };
+    }
+    return player;
+  }
+
+  // Check for ladder grab (action button or up/jump while overlapping ladder)
+  const playerCenterX = player.position.x + player.width / 2;
+  const playerCenterY = player.position.y + player.height / 2;
+
+  for (const ladder of ladders) {
+    // Check if player overlaps with ladder
+    const ladderCenterX = ladder.x + ladder.width / 2;
+    const ladderTop = ladder.y;
+    const ladderBottom = ladder.y + ladder.height;
+
+    const horizontalDist = Math.abs(playerCenterX - ladderCenterX);
+    const isWithinHorizontal = horizontalDist < grabDistance;
+    const isWithinVertical = player.position.y + player.height > ladderTop &&
+                             player.position.y < ladderBottom;
+
+    if (isWithinHorizontal && isWithinVertical) {
+      // Grab ladder if pressing up (jump) or action
+      if (input.jump || input.action) {
+        const newPlayer = { ...player };
+        newPlayer.isOnLadder = true;
+        newPlayer.attachedLadderId = ladder.id;
+        newPlayer.isGrounded = false;
+        newPlayer.isJumping = false;
+        newPlayer.isOnRope = false;
+        newPlayer.attachedRopeId = null;
+        newPlayer.animationState = 'climbing';
+        // Set cooldown to prevent immediate release (10 frames = ~166ms at 60fps)
+        newPlayer.ladderGrabCooldown = 10;
+        // Reset velocity
+        newPlayer.velocity.x = 0;
+        newPlayer.velocity.y = 0;
+        return newPlayer;
+      }
+    }
+  }
+
+  return player;
 }

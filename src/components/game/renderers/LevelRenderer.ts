@@ -7,6 +7,7 @@ import {
   PushableObject,
   Switch,
   Checkpoint,
+  Ladder,
   GameState,
 } from '../../../types/game';
 import { COLORS } from '../../../game/constants';
@@ -44,6 +45,12 @@ export function renderLevel(
 
   // Render exit zone (subtle glow)
   renderExitZone(ctx, levelData.exitZone);
+
+  // Render ladders
+  (levelData.ladders || []).forEach((ladder) => {
+    const isPlayerAttached = gameState.player.isOnLadder && gameState.player.attachedLadderId === ladder.id;
+    renderLadder(ctx, ladder, isPlayerAttached);
+  });
 
   // Render ropes
   levelData.ropes.forEach((rope) => {
@@ -506,6 +513,92 @@ function renderRope(
     ctx.arc(endX, endY, 6, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+// Render ladder - Limbo-style silhouette with rungs
+function renderLadder(
+  ctx: CanvasRenderingContext2D,
+  ladder: Ladder,
+  isPlayerAttached: boolean = false
+): void {
+  ctx.fillStyle = COLORS.platform;
+  ctx.strokeStyle = COLORS.platform;
+
+  const sideWidth = 4; // Width of ladder side rails
+  const rungHeight = 3; // Height of each rung
+
+  // Draw left side rail with slight organic variation
+  ctx.beginPath();
+  ctx.moveTo(ladder.x, ladder.y);
+  for (let y = 0; y <= ladder.height; y += 20) {
+    const seed = (ladder.y + y) * 13;
+    const wobble = Math.sin(seed * 0.1) * 1;
+    ctx.lineTo(ladder.x + wobble, ladder.y + y);
+  }
+  ctx.lineTo(ladder.x, ladder.y + ladder.height);
+  ctx.lineTo(ladder.x + sideWidth, ladder.y + ladder.height);
+  for (let y = ladder.height; y >= 0; y -= 20) {
+    const seed = (ladder.y + y) * 17;
+    const wobble = Math.sin(seed * 0.1) * 0.5;
+    ctx.lineTo(ladder.x + sideWidth + wobble, ladder.y + y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Draw right side rail with slight organic variation
+  const rightX = ladder.x + ladder.width - sideWidth;
+  ctx.beginPath();
+  ctx.moveTo(rightX, ladder.y);
+  for (let y = 0; y <= ladder.height; y += 20) {
+    const seed = (ladder.y + y) * 19;
+    const wobble = Math.sin(seed * 0.1) * 1;
+    ctx.lineTo(rightX + wobble, ladder.y + y);
+  }
+  ctx.lineTo(rightX, ladder.y + ladder.height);
+  ctx.lineTo(rightX + sideWidth, ladder.y + ladder.height);
+  for (let y = ladder.height; y >= 0; y -= 20) {
+    const seed = (ladder.y + y) * 23;
+    const wobble = Math.sin(seed * 0.1) * 0.5;
+    ctx.lineTo(rightX + sideWidth + wobble, ladder.y + y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Draw rungs with slight variations for organic feel
+  const rungSpacing = ladder.rungSpacing || 25;
+  const numRungs = Math.floor(ladder.height / rungSpacing);
+
+  for (let i = 1; i <= numRungs; i++) {
+    const rungY = ladder.y + i * rungSpacing;
+    const seed = rungY * 11;
+
+    // Slight vertical variation for each rung
+    const yOffset = Math.sin(seed * 0.2) * 1;
+
+    // Rung with slight taper
+    ctx.beginPath();
+    ctx.moveTo(ladder.x + sideWidth - 1, rungY + yOffset);
+    ctx.lineTo(ladder.x + ladder.width - sideWidth + 1, rungY + yOffset);
+    ctx.lineTo(ladder.x + ladder.width - sideWidth + 1, rungY + rungHeight + yOffset);
+    ctx.lineTo(ladder.x + sideWidth - 1, rungY + rungHeight + yOffset);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Top mounting bracket - industrial look
+  ctx.fillStyle = COLORS.platform;
+  const bracketWidth = ladder.width + 10;
+  const bracketHeight = 8;
+  ctx.fillRect(ladder.x - 5, ladder.y - bracketHeight, bracketWidth, bracketHeight);
+
+  // Mounting bolts
+  ctx.fillStyle = COLORS.accent;
+  ctx.beginPath();
+  ctx.arc(ladder.x, ladder.y - bracketHeight / 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(ladder.x + ladder.width, ladder.y - bracketHeight / 2, 3, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 // Render sparse grass on top of a platform
