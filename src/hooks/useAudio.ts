@@ -496,7 +496,7 @@ export function useAudio(isPlaying: boolean, volume: number = 0.3) {
         const t = i / ctx.sampleRate;
         // Envelope: fade in, sustain, long fade out
         // Distant thunder has slower attack
-        const attackTime = 0.2 + distance * 0.15;
+        const attackTime = 0.1 + distance * 0.1;
         const envelope =
           t < attackTime
             ? t / attackTime
@@ -505,29 +505,29 @@ export function useAudio(isPlaying: boolean, volume: number = 0.3) {
               : Math.pow(1 - (t - thunderDuration * 0.4) / (thunderDuration * 0.6), 2);
 
         // Low frequency rumble with some randomness
-        rumble = rumble * 0.99 + (Math.random() * 2 - 1) * 0.01;
-        const noise = rumble + (Math.random() * 2 - 1) * 0.3;
+        rumble = rumble * 0.98 + (Math.random() * 2 - 1) * 0.02;
+        const noise = rumble + (Math.random() * 2 - 1) * 0.4;
 
         // Add some rolling variation
-        const roll = Math.sin(t * 3 + Math.random() * 0.5) * 0.5 + 0.5;
+        const roll = Math.sin(t * 3 + Math.random() * 0.5) * 0.4 + 0.6;
 
         leftData[i] = noise * envelope * roll;
-        rightData[i] = (rumble + (Math.random() * 2 - 1) * 0.3) * envelope * roll;
+        rightData[i] = (rumble + (Math.random() * 2 - 1) * 0.4) * envelope * roll;
       }
 
       const thunderNode = ctx.createBufferSource();
       thunderNode.buffer = thunderBuffer;
 
-      // Very low pass for deep rumble - more filtering for distant thunder
+      // Low pass for deep rumble - less aggressive filtering for more presence
       const thunderLowpass = ctx.createBiquadFilter();
       thunderLowpass.type = 'lowpass';
-      thunderLowpass.frequency.value = 200 - distance * 30 + Math.random() * 50;
-      thunderLowpass.Q.value = 0.5;
+      thunderLowpass.frequency.value = 350 - distance * 40 + Math.random() * 50;
+      thunderLowpass.Q.value = 0.7;
 
-      // Thunder volume - quieter when distant
+      // Thunder volume - significantly increased for prominence
       const thunderGain = ctx.createGain();
-      const baseVolume = 0.25 - distance * 0.04;
-      thunderGain.gain.value = Math.max(0.08, baseVolume + Math.random() * 0.05);
+      const baseVolume = 0.7 - distance * 0.1;
+      thunderGain.gain.value = Math.max(0.25, baseVolume + Math.random() * 0.1);
 
       thunderNode.connect(thunderLowpass);
       thunderLowpass.connect(thunderGain);
